@@ -46,6 +46,7 @@ method_info {
 名称索引主要是表示这个方法或者字段的名称,u2是一个常量池的地址.访问的是一种CONSTANT_Utf8_info结构的常量,表示一种索引.另外,字段或方法描述符,指向的也是常量池中的一种CONSTANT_Utf8_info结构,用的是java虚拟机的定义的字符串表示字段或者方法的定义.
 
 java虚拟机的字段的字节码表示的主要规则如下:
+
 | 字段类型| 类型 | 含义 |
 | --- | -- | -- |
 | B | byte | 有符号单字节整形 |
@@ -65,6 +66,7 @@ MethodDescriptor:
 如果入参为空,则里面的ParameterDescriptor为空,如果ReturnDescriptor为void,则用V表示.
 
 举例来说
+
 | 类型| javacode| java虚拟机表现形式 |
 | --- | -- | -- |
 | 字段 | String b | Ljava/lang/String; |
@@ -77,6 +79,7 @@ MethodDescriptor:
 ## 类信息怎么表示的
 这里的类信息单值类的访问标记,类的名称,继承父类,接口,注解以及源文件的路径名称的这些元信息.
 类上可以定义的访问标记如下:
+
 | 访问标记 | javacode| java虚拟机表现形式 |
 | --- | -- | -- |
 | ACC_PUBLIC | 0x0001 |声明 public; 表示可以包外访问.|
