@@ -4,7 +4,7 @@
 主要的文章目前打算有如下这些。
 
 1. [一个Java对象到底有多大](content/object_length.md)
-2. Java字节码说明
+2. [Java字节码说明](content/bytecode.md)
 3. 类加载机制
 4. 运行时数据区域
 5. JIT即时编译
