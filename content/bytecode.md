@@ -25,27 +25,14 @@ ClassFile {
     u2 attributes_count;// 属性表数量
     attribute_info attributes[attributes_count];//属性表集合
 }
-// 字段表结构
-field_info {
-    u2 access_flags;// 访问标记
-    u2 name_index;// 名称索引
-    u2 descriptor_index;// 字段描述
-    u2 attributes_count;// 属性表数量
-    attribute_info attributes[attributes_count];// 属性表
-}
-// 方法表结构
-method_info {
-    u2 access_flags;// 访问标记
-    u2 name_index;// 名称索引
-    u2 descriptor_index;// 方法描述
-    u2 attributes_count;//属性表数量
-    attribute_info attributes[attributes_count];// 属性表
-}
 ```
-这里先列出我们主要的class文件结构. 访问标记是一个u2类型的,就是2个字节,16个字符.class文件定义在不同位置不同值的含义.我们经常用的public,protected,private,static,volatile等,都在这个位置表示的.
-名称索引主要是表示这个方法或者字段的名称,u2是一个常量池的地址.访问的是一种CONSTANT_Utf8_info结构的常量,表示一种索引.另外,字段或方法描述符,指向的也是常量池中的一种CONSTANT_Utf8_info结构,用的是java虚拟机的定义的字符串表示字段或者方法的定义.
+java字节码整体结构如下. 这里主要说明下前面几个字段.u4的magic,魔数,表示这个文件是class文件,这是一个定值0xCAFEBABE.java虚拟机在读取字节码校验的时候.会先校验魔数是不是这个值,如果不是,虚拟机会拒绝解析,直接抛错.
 
-java虚拟机的字段的字节码表示的主要规则如下:
+其次,minor_version是次版本号,major_version是主版本号.java虚拟机向前兼容,所以主版本号越大的虚拟机能解析前面所有版本的class文件.但反过来不行,老版本的虚拟机不支持新版本的字节码文件.这个也是在虚拟机类加载的时候做的校验.
+
+## 虚拟机字节码信息表示
+
+虚拟机字段或者方法在java虚拟机有一套独特的表述形式的.其主要规则如下.
 
 | 字段类型| 类型 | 含义 |
 | --- | -- | -- |
@@ -55,10 +42,10 @@ java虚拟机的字段的字节码表示的主要规则如下:
 | F | float | 单精度浮点数 |
 | I | int | 整形 |
 | J | long | 长整形 |
-|L*classname;* | reference | classname类的实例 |
-|S | short | 有符号短整形 |
+| L*classname;* | reference | classname类的实例 |
+| S | short | 有符号短整形 |
 | Z| boolean | boolean类型 |
-| [ | reference | 数组类型|
+| [ | reference | 数组类型 |
 
 java虚拟机方法的描述是在字段的基础上加上如下规则:
 MethodDescriptor:
@@ -80,17 +67,17 @@ MethodDescriptor:
 这里的类信息单值类的访问标记,类的名称,继承父类,接口,注解以及源文件的路径名称的这些元信息.
 类上可以定义的访问标记如下:
 
-| 访问标记 | javacode| java虚拟机表现形式 |
+| 访问标记 | 字节码表述 | 含义 |
 | --- | -- | -- |
-| ACC_PUBLIC | 0x0001 |声明 public; 表示可以包外访问.|
-|ACC_FINAL| 0x0010| 声明为 final; 禁止子类继承.|
-|ACC_SUPER| 0x0020 |当遇到invokespecial指令时,需要对父类方法特殊处理|
-|ACC_INTERFACE |0x0200 | 表示是一个接口 interface,而不是要给类 |
-|ACC_ABSTRACT |0x0400| 声明为抽象类abstract,不能被实例化|
-|ACC_SYNTHETIC |0x1000| 声明为synthetic; 表示虚拟机自己生成的,不会出现在源码中.|
-|ACC_ANNOTATION| 0x2000| 声明为一个注解类型 annonation.|
-|ACC_ENUM| 0x4000| 声明一个枚举类型 enum.|
-|ACC_MODULE |0x8000 |一个模块 module ,而非类或者接口,jdk9新加的|
+| ACC_PUBLIC | 0x0001 | 声明 public; 表示可以包外访问.|
+| ACC_FINAL| 0x0010| 声明为 final; 禁止子类继承.|
+| ACC_SUPER| 0x0020 |当遇到invokespecial指令时,需要对父类方法特殊处理|
+| ACC_INTERFACE |0x0200 | 表示是一个接口 interface,而不是要给类 |
+| ACC_ABSTRACT |0x0400| 声明为抽象类abstract,不能被实例化|
+| ACC_SYNTHETIC |0x1000| 声明为synthetic; 表示虚拟机自己生成的,不会出现在源码中.|
+| ACC_ANNOTATION| 0x2000| 声明为一个注解类型 annonation.|
+| ACC_ENUM| 0x4000| 声明一个枚举类型 enum.|
+| ACC_MODULE |0x8000 |一个模块 module ,而非类或者接口,jdk9新加的|
 
 类的名称是u2类型的,指向常量池中一个CONSTANT_Class_info结构.超类和接口表都是如此,指向的都是常量池的一个个CONSTANT_Class_info结构.
 
@@ -99,13 +86,66 @@ MethodDescriptor:
 类的源文件所在的说明主要在SourceFile属性中,这个属性详细记录了生成这个class文件的源文件路径等信息.
 
 ## 我的字段类型和初始化信息都在哪
+字段在字节码的表现形式如上面所示的.
+```c++
+// 字段表结构
+field_info {
+    u2 access_flags;// 访问标记
+    u2 name_index;// 名称索引
+    u2 descriptor_index;// 字段描述
+    u2 attributes_count;// 属性表数量
+    attribute_info attributes[attributes_count];// 属性表
+}
 
+```
 
+| 访问标记 | 字节码表述 | 含义 |
+| --- | -- | -- |
+| ACC_PUBLIC | 0x0001 |  声明 public; 表示可以包外访问.|
+| ACC_PRIVATE | 0x0002 | 声明为私有private,只能通过本类中的访问 |
+| ACC_PROTECTED | 0x0004 | 声明为protected; 只能通过本类,同包或者子类访问. |
+| ACC_STATIC | 0x0008 | 声明为静态的 static.|
+| ACC_FINAL | 0x0010 | 声明为 final; 直接分配在实例化之后 |
+| ACC_VOLATILE | 0x0040 | 声明为volatile; 不能被cpu缓存 |
+| ACC_TRANSIENT | 0x0080 | 声明为 transient; 不会被持久化对象管理写入或者读取|
+| ACC_SYNTHETIC | 0x1000| 声明为synthetic; 编译期生存,不会出现在源码中 |
+| ACC_ENUM| 0x4000| 声明为一个枚举的枚举项|
 
-
+名称索引是指向常量池一个CONSTANT_Utf8_info结构.表示字段的名称.而字段描述也是指向一个常量池中的一个CONSTANT_Utf8_info的结构.表述方式由上面所示的.
+属性表里面主要存的有很多种说明信息,比如泛型,注解,初始化值等.这些都是在属性表中存在的.所以属性表会有多个.
 
 
 ## 方法存在哪
+
+```c++
+// 方法表结构
+method_info {
+    u2 access_flags;// 访问标记
+    u2 name_index;// 名称索引
+    u2 descriptor_index;// 方法描述
+    u2 attributes_count;//属性表数量
+    attribute_info attributes[attributes_count];// 属性表
+}
+```
+访问标记的主要说明如下:
+
+| 访问标记 | 字节码表述 | 含义 |
+| --- | -- | -- |
+| ACC_PUBLIC | 0x0001 | 声明为 public;  表示可以包外访问.|
+| ACC_PRIVATE | 0x0002 | 声明为私有private,只能通过本类中的访问 |
+| ACC_PROTECTED | 0x0004 | 声明为protected; 只能通过本类,同包或者子类访问. |
+| ACC_STATIC | 0x0008 | 声明为静态的 static.|
+| ACC_FINAL | 0x0010 | 声明为final; 禁止被子类覆写 |
+| ACC_SYNCHRONIZED | 0x0020 |声明为synchronized; 调用会使用一个monitor监视 |
+| ACC_BRIDGE | 0x0040 | 一个bridge 方法,表示编译器生成的.|
+| ACC_VARARGS | 0x0080 | 声明可变参数. |
+| ACC_NATIVE | 0x0100 |声明native; 被其他语言实现,而不是java |
+| ACC_ABSTRACT | 0x0400 | 声明为abstract; 没有提供方法实现.|
+| ACC_STRICT | 0x0800 | 声明为strictfp; 浮点计算模式为FPstrict.|
+| ACC_SYNTHETIC | 0x1000 |声明为synthetic;不会出现在源码中.|
+
+访问标记下面是字节码
+
 
 ## 调试的时候,字节码怎么和代码对应起来的
 
