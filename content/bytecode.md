@@ -147,12 +147,75 @@ method_info {
 访问标记下面是方法名称和方法描述.这两个都指向常量池的CONSTANT_Utf8_info结构.描述上文已经提过了.主要是我们经常关注的方法的code,异常处理,本地声明的变量,注解等信息,这些都存在属性表里面.我们后面详细分析方法的属性表.
 
 ## 方法的内容字节码表示
+方法的主要内容都存在方法的一个叫Code的属性中,这是我们这节的主要说明.为什么把它要单独拿出来说,因为这个是我们最为关注的东西都在里面.它的主要结构是这样的:
+```c
+Code_attribute {
+    u2 attribute_name_index; // 属性表的字段说明,code属性里面是常量Code
+    u4 attribute_length;// 属性表字节长度,不包括开始的6个字节
+    u2 max_stack; // 最大栈深度
+    u2 max_locals; // 最大本地变量表长度
+    u4 code_length; // 虚拟机指令长度
+    u1 code[code_length]; // 虚拟机指令数组
+    u2 exception_table_length; // 异常处理器个数
+    { 
+        u2 start_pc; // 开始接管位置
+        u2 end_pc; // 结束位置
+        u2 handler_pc; // 处理器位置开始
+        u2 catch_type; // 处理异常
+    } exception_table[exception_table_length]; // 处理器数组
+    u2 attributes_count; // 属性表个数
+    attribute_info attributes[attributes_count]; // 属性表数组.
+}
+```
+我们写的代码,转化为字节码之后,会转化成一个个虚拟机指令.这些指令存在Code属性的code数组里面.code数组是u1类型的,表示一个字节表示所有的操作内容了.所以,虚拟机字节指令最多有256个. 虚拟机只用了两百多个指令就实现了我们程序所有的功能. 压缩度还是很高的. 
 
+这其中的max_stack和max_locals是用来存储命令执行过程中的数据的.max_stack是最大操作数占深度,程序在运行这个方法是时候,这个操作数站的深度是固定的.不会发生改变. max_locals是局部变量表数量,在方法执行过程中,也是固定的.这两个参数都是基于方法编译时计算好的. 每个操作数栈和局部变量表所占空间是4个字节. 局部变量表单位是槽, 如果是double或者long类型,则会占据两个槽. 其他类型都只占一个槽,包括reference类型的对象.(就是引用类型的对象).如果方法执行过程中使用超过了这两个数的最大值,或者执行出空占的指令.都会抛错. 感觉虚拟机是将内存分配的大小计算提前到了编译期处理的.这样方法执行的时候,就非常方便的开辟和回收空间,以节约性能.
 
+因为虚拟机操作指令是和数据类型绑定的,所以在读取的时候,会严格限制读取顺序的. double和long类型,虚拟机是绝对禁止只读取半个字节数据的.
 
+异常表中,主要是表示java代码中tay-catch-finally的逻辑的. catch后面的异常,会出现在catch_type中.finally的处理逻辑是将catch_type表示为any,这样异常处理器开始和结束中间的任何代码最后都能被handler_pc的逻辑处理到.异常表出现顺序和代码里面出现的一致. 虚拟机在执行的时候,会一次查找异常表的处理逻辑是否匹配.如果有catch,也有final的情况下,finally的代码会生成两个异常处理器,用来分别处理正常和异常的逻辑.
 
-## 注解都存哪了
+再者就是,我们经常提到的局部变量的字段名,方法执行对应的行号等,这些存储在属性表的属性中,分别是LocalVariableTable,LineNumberTable. LocalVariableTable属性表存储了变量的作用范围,存储在局部变量表哪个槽,局部变量的类型,局部变量名称等信息. LineNumberTable是将字节指令对应到源码文件的哪一行上去的,主要用于开发时debug表示执行到哪一行,以及日志中出现的错误对应源文件行号等信息的处理的.
+这两种对应的结构分别是:
+
+```C
+LineNumberTable_attribute {
+    u2 attribute_name_index; //属性名称,固定为LineNumberTable
+    u4 attribute_length; // 属性表长度.字节数,不包括开始的6个字节
+    u2 line_number_table_length; // 方法的行数
+    { 
+        u2 start_pc; // 字节码开始序号,对应code属性中code数组的下标
+        u2 line_number; // 对应源文件的行号
+    } 
+    line_number_table[line_number_table_length]; // 方法字段对应的数组
+}
+
+LocalVariableTable_attribute {
+    u2 attribute_name_index; // 属性名称,固定为LocalVariableTable
+    u4 attribute_length; // 属性表长度,字节数.不包括开始的6个字节
+    u2 local_variable_table_length; // 局部变量表个数
+    { 
+        u2 start_pc; // 局部变量作用范围开始
+        u2 length; // 局部变量作用范围结束.相当于在start_pc+length的位置结束
+        u2 name_index; // 局部变量名称,指向常量池的一个常量
+        u2 descriptor_index; // 局部变量描述符.用最开始的虚拟机形式表示字段类型
+        u2 index; // 存储在局部变量表的位置索引.
+    } 
+    local_variable_table[local_variable_table_length];
+}
+```
 
 ## 异常处理是怎么反应在字节码的
+上节简单的说明了在方法内try-catch异常的处理逻辑.但我们还会存在方法上声明我这个方法将会抛错那些异常这种场景,这个场景下,字节码又是怎么表示的呢.在方法的属性中,有一个异常表Exceptions_attribute.其结构如下:
+```C
+Exceptions_attribute {
+    u2 attribute_name_index;// 属性表名称,固定位Exceptions
+    u4 attribute_length; // 属性表长度,不包括最开始的6个字节
+    u2 number_of_exceptions; // 异常数量
+    u2 exception_index_table[number_of_exceptions]; // u2类型的异常排序.指向常量池的CONSTANT_Class_info结构.
+}
+
+```
+方法可以抛出过个异常,每个异常以列表的形式存储在exception_index_table中,顺序和源码出现的顺序一致.
 
 ## 我的泛型存在哪了
