@@ -219,3 +219,74 @@ Exceptions_attribute {
 方法可以抛出过个异常,每个异常以列表的形式存储在exception_index_table中,顺序和源码出现的顺序一致.
 
 ## 我的泛型存在哪了
+
+因为泛型可能存在类上,字段或者方法上.那么,泛型应该属于class_info,field_info或者method_info上的属性.
+
+泛型的属性名为Signature,用于保存泛型信息的.其主要结构是这样的.
+```C
+Signature_attribute {
+    u2 attribute_name_index;//  属性名称,固定为Signature
+    u4 attribute_length; // 泛型的这个字段是定值2
+    u2 signature_index; // 泛型签名,指向常量池中一个CONSTANT_Utf8_info结构
+}
+```
+
+以上就是泛型的结构.这里主要详细说下泛型的签名.因为在类上,方法上和字段上,所以.在这三个位置的属性表中,泛型的签名都有一套自己的规则.
+
+先说类上的泛型签名:
+类上签名的的格式为
+> ClassSignature:
+>     [TypeParameter]SuperclassSignature{SuperinterfaceSignature}
+
+
+> TypeParameter:表示本类的泛型签名
+> SuperclassSignature表示父类的签名,可能也含有泛型
+> SuperinterfaceSignature表示父接口的签名,可能有多个.也可能含有签名.
+> {} 表示可能不存在,也可能有多个.
+
+如
+```java
+abstract class MyMap implements Map<String,Object>
+
+//其中signature_index签名为:Ljava/lang/Object;Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;
+//Ljava/lang/Object; 为父类签名
+//Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>; 为父接口签名.
+//<>表示泛型信息
+```
+
+再说方法签名:
+> MethodSignature:
+[TypeParameters] ( {JavaTypeSignature} ) Result {ThrowsSignature}
+TypeParameters:泛型签名
+JavaTypeSignature 方法入参签名
+Result 结果类型签名
+ThrowsSignature 异常类型签名
+
+如:
+```C++
+hashMap里面的put方法的签名
+public V put(K k,V v)
+
+签名是: (TK;TV;)TV;
+
+T表示的是参数化类型,就是我们说的泛型.
+K,V是类上定义好的泛型类型.
+
+```
+字段签名相对比较简单,就不说了.这里的签名在java里面还有更多详细的描述.比如泛型的上界下界的问题,都会在泛型里面体现的.这里不展开了.
+
+另外,我们方法执行的时候,也会创建泛型.这个时候,泛型存在不是这里了.而是在Code属性的一个叫LocalVariableTypeTable的属性中.它的结构是这样的.
+```C++
+LocalVariableTypeTable_attribute {
+    u2 attribute_name_index;
+    u4 attribute_length;
+    u2 local_variable_type_table_length;
+    { 
+        u2 start_pc;
+        u2 length;
+        u2 name_index;
+        u2 signature_index; // 这里就是保存局部变量的泛型签名的数据.形式和上面的泛型签名一致.
+        u2 index;
+    } local_variable_type_table[local_variable_type_table_length];
+}
+``
