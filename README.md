@@ -6,7 +6,7 @@
 1. [一个Java对象到底有多大](content/object_length.md)
 1. [Java字节码说明](content/bytecode.md)
     - [注解在字节码的表示](content/annonation.md)
-1. 类加载机制
+1. [类加载机制](content/classloader.md)
 1. 运行时数据区域
 1. JIT即时编译
 1. 方法调用
